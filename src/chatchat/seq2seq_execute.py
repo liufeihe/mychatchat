@@ -38,6 +38,7 @@ gConfig = {}
 # 设置不同的桶以及桶的长度，原则两个：1、尽量覆盖所有训练语料语句的长度，2、尽量保持桶里语料的平衡
 _buckets = [(1, 10), (10, 15), (20, 25), (40, 50)]
 
+
 def read_data(source_path, target_path, max_size=None):
     """Read data from source and target files and put into buckets.
 
