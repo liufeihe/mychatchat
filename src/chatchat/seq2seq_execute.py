@@ -234,6 +234,11 @@ def decode_line(sess, model, enc_vocab, rev_dec_vocab, sentence):
     # Get output logits for the sentence.
     _, _, output_logits = model.step(sess, encoder_inputs, decoder_inputs, target_weights, bucket_id, True)
 
+    # print(output_logits)
+    # print(len(output_logits))
+    # print(len(output_logits[0]))
+    # print(len(output_logits[0][0]))
+
     # This is a greedy decoder - outputs are just argmaxes of output_logits.
     outputs = [int(np.argmax(logit, axis=1)) for logit in output_logits]
 
