@@ -93,8 +93,8 @@ class DynamicSeq2Seq(object):
         text = self.source_to_seq(input_word)
         checkpoint = config.checkpoint
         batch_size = config.batch_size
-        loader = tf.train.import_meta_graph(os.path.join(os.path.dirname(__file__), config.checkpoint + '.meta'))
-        loader.restore(sess, os.path.join(os.path.dirname(__file__), config.checkpoint))
+        loader = tf.train.import_meta_graph(os.path.join(os.path.dirname(__file__), checkpoint + '.meta'))
+        loader.restore(sess, os.path.join(os.path.dirname(__file__), checkpoint))
         graph = tf.get_default_graph()
         input_data = graph.get_tensor_by_name('inputs:0')
         logits = graph.get_tensor_by_name('predictions:0')
