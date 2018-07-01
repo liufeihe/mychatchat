@@ -20,7 +20,7 @@ class Config(object):
     decoding_embedding_size = 15
     learning_rate = 0.01
 
-    checkpoint = './dynamic_seq2seq_dir/train_dynamic_model2.ckpt'
+    checkpoint = './dynamic_seq2seq_dir/train_dynamic_model.ckpt'
     display_step = 10
     max_train_data_size = 5000
     source_vocab_path = './working_dir/vocab20000.enc'
@@ -89,17 +89,18 @@ class DynamicSeq2Seq(object):
 
     def predict(self, sess, saver):
         config = self.config
+        batch_size = config.batch_size
+
+        checkpoint = os.path.join(os.path.dirname(__file__), config.checkpoint)
+        saver.restore(sess, checkpoint)
+        graph = tf.get_default_graph()
+        input_data = graph.get_tensor_by_name('input/inputs:0')
+        logits = graph.get_tensor_by_name('loss/predictions:0')
+        source_sequence_length = graph.get_tensor_by_name('input/source_sequence_length:0')
+        target_sequence_length = graph.get_tensor_by_name('input/target_sequence_length:0')
+
         input_word = '你好'
         text = self.source_to_seq(input_word)
-        checkpoint = config.checkpoint
-        batch_size = config.batch_size
-        loader = tf.train.import_meta_graph(os.path.join(os.path.dirname(__file__), checkpoint + '.meta'))
-        loader.restore(sess, os.path.join(os.path.dirname(__file__), checkpoint))
-        graph = tf.get_default_graph()
-        input_data = graph.get_tensor_by_name('inputs:0')
-        logits = graph.get_tensor_by_name('predictions:0')
-        source_sequence_length = graph.get_tensor_by_name('source_sequence_length:0')
-        target_sequence_length = graph.get_tensor_by_name('target_sequence_length:0')
         answer_logits = sess.run(logits, {input_data: [text] * batch_size,
                                           target_sequence_length: [len(input_word)] * batch_size,
                                           source_sequence_length: [len(input_word)] * batch_size
@@ -196,8 +197,7 @@ class DynamicSeq2Seq(object):
 
         with tf.variable_scope('loss'):
             training_logits = tf.identity(decoder_output.rnn_output, 'logits')
-            if self.mode == 'predict':
-                predicting_logits = tf.identity(decoder_output.sample_id, name='predictions')
+            predicting_logits = tf.identity(decoder_output.sample_id, name='predictions')
             masks = tf.sequence_mask(self.target_sequence_length, self.max_target_sequence_length, dtype=tf.float32, name='masks')
             self.loss = tf.contrib.seq2seq.sequence_loss(training_logits, self.targets, masks)
 
