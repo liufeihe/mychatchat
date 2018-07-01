@@ -9,6 +9,7 @@ import numpy as np
 import os
 import sys
 import data_utils
+import jieba
 
 
 class Config(object):
@@ -87,6 +88,41 @@ class DynamicSeq2Seq(object):
             saver.save(sess, checkpoint)
             print 'model trained and saved'
 
+    def decode_line(self, sentence):
+        config = self.config
+        batch_size = config.batch_size
+
+        saver = tf.train.Saver()
+        with tf.Session() as sess:
+            checkpoint = os.path.join(os.path.dirname(__file__), config.checkpoint)
+            saver.restore(sess, checkpoint)
+            graph = tf.get_default_graph()
+            input_data = graph.get_tensor_by_name('input/inputs:0')
+            logits = graph.get_tensor_by_name('loss/predictions:0')
+            source_sequence_length = graph.get_tensor_by_name('input/source_sequence_length:0')
+            target_sequence_length = graph.get_tensor_by_name('input/target_sequence_length:0')
+
+            input_word = '晚上吃什么呢'
+            if sentence:
+                input_word = sentence
+            cut_word = ' '.join(jieba.cut(input_word))
+            print cut_word
+            text = self.source_to_seq(cut_word)
+            answer_logits = sess.run(logits, {input_data: [text] * batch_size,
+                                              target_sequence_length: [len(input_word)] * batch_size,
+                                              source_sequence_length: [len(input_word)] * batch_size
+                                              })[0]
+            pad = self.source_letter_to_int[data_utils.PAD]
+            print 'input:' + input_word
+            print '\n Source'
+            print '   Word 编号： {}'.format([i for i in text])
+            print '   Input Words: {}'.format(' '.join([self.source_int_to_letter[i] for i in text]))
+            print '\n Target'
+            print '   Word 编号： {}'.format([i for i in answer_logits if i != pad])
+            res = ' '.join([self.target_int_to_letter[i] for i in answer_logits if i != pad])
+            print '   Response Words: {}'.format(res)
+            return res
+
     def predict(self, sess, saver):
         config = self.config
         batch_size = config.batch_size
@@ -99,8 +135,10 @@ class DynamicSeq2Seq(object):
         source_sequence_length = graph.get_tensor_by_name('input/source_sequence_length:0')
         target_sequence_length = graph.get_tensor_by_name('input/target_sequence_length:0')
 
-        input_word = '你好'
-        text = self.source_to_seq(input_word)
+        input_word = '晚上吃什么呢'
+        cut_word = ' '.join(jieba.cut(input_word))
+        print cut_word
+        text = self.source_to_seq(cut_word)
         answer_logits = sess.run(logits, {input_data: [text] * batch_size,
                                           target_sequence_length: [len(input_word)] * batch_size,
                                           source_sequence_length: [len(input_word)] * batch_size
@@ -116,8 +154,9 @@ class DynamicSeq2Seq(object):
 
     def source_to_seq(self, text):
         sequence_length = 7
+        words = text.split(' ')
         source_letter_to_int = self.source_letter_to_int
-        return [source_letter_to_int.get(word, source_letter_to_int[data_utils.UNK]) for word in text] + \
+        return [source_letter_to_int.get(word, source_letter_to_int[data_utils.UNK]) for word in words] + \
                [source_letter_to_int[data_utils.PAD]] * (sequence_length - len(text))
 
     def get_batches(self, targets, sources, batch_size, source_pad_int, target_pad_int):
