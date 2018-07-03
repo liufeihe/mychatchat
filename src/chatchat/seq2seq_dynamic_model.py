@@ -9,6 +9,7 @@ import numpy as np
 import os
 import data_utils
 import jieba
+import sys
 
 
 class Config(object):
