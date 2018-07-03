@@ -7,7 +7,6 @@ from tensorflow.python.layers.core import Dense
 from tensorflow.python.platform import gfile
 import numpy as np
 import os
-import sys
 import data_utils
 import jieba
 
@@ -23,7 +22,7 @@ class Config(object):
 
     checkpoint = './dynamic_seq2seq_dir/train_dynamic_model.ckpt'
     display_step = 10
-    max_train_data_size = 5000
+    max_train_data_size = 10000
     source_vocab_path = './working_dir/vocab20000.enc'
     target_vocab_path = './working_dir/vocab20000.dec'
     train_source_data_path = './working_dir/train.enc.ids20000'
@@ -106,7 +105,6 @@ class DynamicSeq2Seq(object):
             if sentence:
                 input_word = sentence
             cut_word = ' '.join(jieba.cut(input_word))
-            print cut_word
             text = self.source_to_seq(cut_word)
             answer_logits = sess.run(logits, {input_data: [text] * batch_size,
                                               target_sequence_length: [len(input_word)] * batch_size,
@@ -119,7 +117,7 @@ class DynamicSeq2Seq(object):
             print '   Input Words: {}'.format(' '.join([self.source_int_to_letter[i] for i in text]))
             print '\n Target'
             print '   Word 编号： {}'.format([i for i in answer_logits if i != pad])
-            res = ' '.join([self.target_int_to_letter[i] for i in answer_logits if i != pad])
+            res = ' '.join([self.target_int_to_letter[i] for i in answer_logits if (i != pad and i != data_utils.EOS_ID)])
             print '   Response Words: {}'.format(res)
             return res
 
@@ -267,7 +265,7 @@ class DynamicSeq2Seq(object):
             rev_vocab = []
             with open(vocabulary_path, 'r') as f:
                 rev_vocab.extend(f.readlines())
-            rev_vocab = [line.strip() for line in rev_vocab]
+            rev_vocab = [line.strip().decode('utf-8') for line in rev_vocab]
             vocab = dict([(x, y) for (y, x) in enumerate(rev_vocab)])
             return rev_vocab, vocab
         else:
