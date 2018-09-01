@@ -86,7 +86,7 @@ class DynamicSeq2Seq(object):
                     })
                     print 'Epoch {:>3}/{} Batch {:>4}/{} - Trainging loss: {:>6.3f} - Validation loss: {:>6.3f}' \
                         .format(epoch_i, self.config.epochs, batch_i, len(train_source) // batch_size, loss, validation_loss[0])
-            saver.save(sess, checkpoint)
+            saver.save(sess, checkpoint, global_step=epoch_i)
             print 'model trained and saved'
 
     def decode_line(self, sentence):
@@ -228,11 +228,8 @@ class DynamicSeq2Seq(object):
             decoder_cell = tf.contrib.seq2seq.AttentionWrapper(decoder_cell,
                                                        attention_mechanism,
                                                        attention_layer_size=num_units)
-
             attention_zero = decoder_cell.zero_state(self.config.batch_size, dtype=tf.float32)
             initial_state = attention_zero.clone(cell_state=encoder_state)
-
-            # init_state = decoder_cell.zero_state(self.config.batch_size, tf.float32)
 
             # 3. output fully connected
             output_layer = Dense(target_vocab_size,
@@ -336,7 +333,7 @@ def main():
     tf.app.flags.DEFINE_string('mode', '', 'mode')
     mode = FLAGS.mode
     model = DynamicSeq2Seq(mode, config)
-    saver = tf.train.Saver()
+    saver = tf.train.Saver(max_to_keep=4)
     with tf.Session() as sess:
         if mode == 'train':
             model.train(sess, saver)
