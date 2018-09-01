@@ -13,7 +13,7 @@ import sys
 
 
 class Config(object):
-    epochs = 10
+    epochs = 3  # 10
     batch_size = 64
     rnn_size = 256
     rnn_layers = 3
@@ -22,6 +22,8 @@ class Config(object):
     decoding_embedding_size = 15
     learning_rate = 0.01
 
+    log_dir = './logs/'
+    checkpointDir = './dynamic_seq2seq_dir'
     checkpoint = './dynamic_seq2seq_dir/train_dynamic_model.ckpt'
     display_step = 10
     max_train_data_size = 10000
@@ -61,6 +63,9 @@ class DynamicSeq2Seq(object):
                                   self.target_letter_to_int[data_utils.PAD]))
         display_step = config.display_step
         checkpoint = os.path.join(os.path.dirname(__file__), config.checkpoint)
+        log_dir = os.path.join(os.path.dirname(__file__), config.log_dir)
+        writer = tf.summary.FileWriter(log_dir, sess.graph)
+        merged = tf.summary.merge_all()
 
         sess.run(tf.global_variables_initializer())
         for epoch_i in range(1, config.epochs + 1):
@@ -69,7 +74,7 @@ class DynamicSeq2Seq(object):
                                      self.source_letter_to_int[data_utils.PAD],
                                      self.target_letter_to_int[data_utils.PAD])
             ):
-                _, loss = sess.run([self.train_op, self.loss], {
+                summary, _, loss = sess.run([merged, self.train_op, self.loss], {
                     self.inputs: sources_batch,
                     self.targets: targets_batch,
                     self.learning_rate: config.learning_rate,
@@ -77,6 +82,7 @@ class DynamicSeq2Seq(object):
                     self.source_sequence_length: sources_lengths
                 })
                 if batch_i % display_step == 0:
+                    writer.add_summary(summary, batch_i)
                     validation_loss = sess.run([self.loss], {
                         self.inputs: valid_sources_batch,
                         self.targets: valid_targets_batch,
@@ -84,10 +90,13 @@ class DynamicSeq2Seq(object):
                         self.target_sequence_length: valid_targets_lengths,
                         self.source_sequence_length: valid_sources_lengths
                     })
+                    print 'After %d steps, perplexity is %.3f, valid perplexity is %.3f' % (batch_i, np.exp(loss), np.exp(validation_loss))
                     print 'Epoch {:>3}/{} Batch {:>4}/{} - Trainging loss: {:>6.3f} - Validation loss: {:>6.3f}' \
                         .format(epoch_i, self.config.epochs, batch_i, len(train_source) // batch_size, loss, validation_loss[0])
             saver.save(sess, checkpoint, global_step=epoch_i)
             print 'model trained and saved'
+
+        writer.close()
 
     def decode_line(self, sentence):
         config = self.config
@@ -95,8 +104,9 @@ class DynamicSeq2Seq(object):
 
         saver = tf.train.Saver()
         with tf.Session() as sess:
-            checkpoint = os.path.join(os.path.dirname(__file__), config.checkpoint)
-            saver.restore(sess, checkpoint)
+            checkpoint_dir = os.path.join(os.path.dirname(__file__), config.checkpointDir)
+            saver.restore(sess, tf.train.latest_checkpoint(checkpoint_dir))
+
             graph = tf.get_default_graph()
             input_data = graph.get_tensor_by_name('input/inputs:0')
             logits = graph.get_tensor_by_name('loss/predictions:0')
@@ -262,6 +272,7 @@ class DynamicSeq2Seq(object):
             predicting_logits = tf.identity(decoder_output.sample_id, name='predictions')
             masks = tf.sequence_mask(self.target_sequence_length, self.max_target_sequence_length, dtype=tf.float32, name='masks')
             self.loss = tf.contrib.seq2seq.sequence_loss(training_logits, self.targets, masks)
+            tf.summary.scalar("loss", self.loss)
 
         with tf.name_scope('optimize'):
             # optimizer = tf.train.AdamOptimizer(lr)
