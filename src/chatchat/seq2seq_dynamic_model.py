@@ -17,6 +17,7 @@ class Config(object):
     batch_size = 64
     rnn_size = 256
     rnn_layers = 3
+    attention_num_units = 10
     encoding_embedding_size = 15
     decoding_embedding_size = 15
     learning_rate = 0.01
@@ -207,8 +208,32 @@ class DynamicSeq2Seq(object):
                                                                 self.config.decoding_embedding_size]))
             decoder_embed_input = tf.nn.embedding_lookup(decoder_embeddings, decoder_input)
             # decoder_embed_input = tf.contrib.layers.embed_sequence(decoder_input, target_vocab_size, self.config.decoding_embedding_size)
+
             # 2. construct the rnn
+            num_units = self.config.rnn_size
+            attention_states = encoder_output  # tf.transpose(encoder_output, [1, 0, 2])
+            attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units,
+                                                                    attention_states,
+                                                                    memory_sequence_length=self.source_sequence_length)
+            # cells = []
+            # for i in range(self.config.rnn_layers):
+            #     cell = self.get_lstm_cell(self.config.rnn_size)
+            #     cell = tf.contrib.seq2seq.AttentionWrapper(cell,
+            #                                                attention_mechanism,
+            #                                                attention_layer_size=num_units)
+            #     cells.append(cell)
+            # decoder_cell = tf.contrib.rnn.MultiRNNCell(cells)
+
             decoder_cell = tf.contrib.rnn.MultiRNNCell([self.get_lstm_cell(self.config.rnn_size) for _ in range(self.config.rnn_layers)])
+            decoder_cell = tf.contrib.seq2seq.AttentionWrapper(decoder_cell,
+                                                       attention_mechanism,
+                                                       attention_layer_size=num_units)
+
+            attention_zero = decoder_cell.zero_state(self.config.batch_size, dtype=tf.float32)
+            initial_state = attention_zero.clone(cell_state=encoder_state)
+
+            # init_state = decoder_cell.zero_state(self.config.batch_size, tf.float32)
+
             # 3. output fully connected
             output_layer = Dense(target_vocab_size,
                                  kernel_initializer=tf.truncated_normal_initializer(mean=0.0, stddev=0.1))
@@ -216,10 +241,10 @@ class DynamicSeq2Seq(object):
                 training_helper = tf.contrib.seq2seq.TrainingHelper(inputs=decoder_embed_input,
                                                                     sequence_length=self.target_sequence_length,
                                                                     time_major=False)
-                training_decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell, training_helper, encoder_state, output_layer)
+                training_decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell, training_helper, initial_state, output_layer)
                 decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(training_decoder,
-                                                                                  impute_finished=True,
-                                                                                  maximum_iterations=self.max_target_sequence_length)
+                                                                         impute_finished=True,
+                                                                         maximum_iterations=self.max_target_sequence_length)
             else:
                 start_tokens = tf.tile(tf.constant([self.target_letter_to_int[data_utils.GO]], dtype=tf.int32),
                                        [self.config.batch_size],
@@ -227,11 +252,13 @@ class DynamicSeq2Seq(object):
                 predicting_helper = tf.contrib.seq2seq.GreedyEmbeddingHelper(decoder_embeddings,
                                                                              start_tokens,
                                                                              self.target_letter_to_int[data_utils.EOS])
-                predicting_decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell, predicting_helper,
-                                                                     encoder_state, output_layer)
+                predicting_decoder = tf.contrib.seq2seq.BasicDecoder(decoder_cell,
+                                                                     predicting_helper,
+                                                                     initial_state,
+                                                                     output_layer)
                 decoder_output, _, _ = tf.contrib.seq2seq.dynamic_decode(predicting_decoder,
-                                                                                    impute_finished=True,
-                                                                                    maximum_iterations=self.max_target_sequence_length)
+                                                                         impute_finished=True,
+                                                                         maximum_iterations=self.max_target_sequence_length)
 
         with tf.variable_scope('loss'):
             training_logits = tf.identity(decoder_output.rnn_output, 'logits')
@@ -251,6 +278,9 @@ class DynamicSeq2Seq(object):
 
     def get_lstm_cell(self, rnn_size):
         lstm_cell = tf.contrib.rnn.LSTMCell(rnn_size, initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
+        # lstm_cell = tf.contrib.rnn.LSTMCell(rnn_size,
+        #                                     state_is_tuple=True,
+        #                                     initializer=tf.random_uniform_initializer(-0.1, 0.1, seed=2))
         return lstm_cell
 
     def process_decoder_input(self, data, vocab_to_int, batch_size):
