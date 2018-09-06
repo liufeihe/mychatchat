@@ -27,12 +27,12 @@ class Config(object):
     checkpoint = './dynamic_seq2seq_dir/train_dynamic_model.ckpt'
     display_step = 10
     max_train_data_size = 10000
-    source_vocab_path = './working_dir/vocab20000.enc'
-    target_vocab_path = './working_dir/vocab20000.dec'
-    train_source_data_path = './working_dir/train.enc.ids20000'
-    train_target_data_path = './working_dir/train.dec.ids20000'
-    test_source_data_path = './working_dir/test.enc.ids20000'
-    test_target_data_path = './working_dir/test.dec.ids20000'
+    source_vocab_path = './dynamic_seq2seq_dir/vocab40000.enc'
+    target_vocab_path = './dynamic_seq2seq_dir/vocab40000.dec'
+    train_source_data_path = './dynamic_seq2seq_dir/train.enc.ids40000'
+    train_target_data_path = './dynamic_seq2seq_dir/train.dec.ids40000'
+    test_source_data_path = './dynamic_seq2seq_dir/test.enc.ids40000'
+    test_target_data_path = './dynamic_seq2seq_dir/test.dec.ids40000'
 
 
 class DynamicSeq2Seq(object):

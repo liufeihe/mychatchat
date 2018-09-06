@@ -1,12 +1,15 @@
 # -*- coding:utf-8 -*-
 
-import math
+import sys
 import os
 import random
 import getConfig
 from tensorflow.python.platform import gfile
 import re
 import jieba
+
+reload(sys)
+sys.setdefaultencoding("utf-8")
 
 # 特殊标记，用来填充标记对话
 PAD = "__PAD__"
@@ -187,5 +190,15 @@ def prepare_data():
 
 
 if __name__ == '__main__':
-    gConfig = getConfig.get_config()
+    # gConfig = getConfig.get_config()
+    gConfig = getConfig.get_config('seq2seq_dynamic_model.ini')
     prepare_data()
+
+    print("Preparing data in %s" % gConfig['working_directory'])
+    _, _, _, _, _, _ = prepare_custom_data(gConfig['working_directory'],
+                                           gConfig['train_enc'],
+                                           gConfig['train_dec'],
+                                           gConfig['test_enc'],
+                                           gConfig['test_dec'],
+                                           gConfig['enc_vocab_size'],
+                                           gConfig['dec_vocab_size'])
