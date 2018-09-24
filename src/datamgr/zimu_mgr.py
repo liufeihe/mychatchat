@@ -30,7 +30,11 @@ def get_download_page_id(raw):
     nodes = soup.select('div.sublist tr')
     node_info = {'url': '', 'num': 0}
     for node in nodes:
-        num = node.select('td.last')[0]
+        if node.select('td.last'):
+            num = node.select('td.last')[0]
+        else:
+            continue
+
         if num:
             num = int(num.get_text())
             if num >= node_info['num']:
@@ -131,5 +135,5 @@ def get_zimu(dst):
 
 
 if __name__ == '__main__':
-    file_test = '时空恋旅人'  # '海边的卡夫卡'
+    file_test = '大话西游'#'时空恋旅人'  # '海边的卡夫卡'
     get_zimu(file_test)
